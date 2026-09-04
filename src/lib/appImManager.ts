@@ -107,6 +107,7 @@ import liteMode, {LiteModeKey} from '@helpers/liteMode';
 import LottiePlayer from '@lib/lottie/lottiePlayer';
 import PopupGiftPremium from '@components/popups/giftPremium';
 import internalLinkProcessor from '@lib/internalLinkProcessor';
+import {INTERNAL_LINK_TYPE} from '@lib/internalLink';
 import {createStoriesViewerWithPeer} from '@components/stories/viewer';
 import type {CustomEmojiRendererElement} from '@lib/customEmoji/renderer';
 import type {ChatInviteJoinWebView} from '@appManagers/appChatsManager';
@@ -139,7 +140,6 @@ import {openWebAppInAppBrowser, openGameInAppBrowser} from '@components/browser'
 import {createProxiedManagersForAccount} from '@lib/getProxiedManagers';
 import ChatBackgroundStore from '@lib/chatBackgroundStore';
 import useLockScreenShortcut from '@appManagers/utils/useLockScreenShortcut';
-import PaidMessagesInterceptor, {PAYMENT_REJECTED} from '@components/chat/paidMessagesInterceptor';
 import IS_WEB_APP_BROWSER_SUPPORTED from '@environment/webAppBrowserSupport';
 import createChatAudio, {ChatAudioController} from '@components/chat/audio';
 import AudioAssetPlayer from '@helpers/audioAssetPlayer';
@@ -991,21 +991,28 @@ export class AppImManager extends EventListenerBase<{
 
   private checkForShare() {
     const share = apiManagerProxy.share;
-    if(share) {
-      apiManagerProxy.share = undefined;
+    if(!share) {
+      return;
+    }
+
+    apiManagerProxy.share = undefined;
+    if(share.files?.length) {
       showForwardPopup(undefined, async(peerId, threadId) => {
         await this.setPeer({peerId, threadId});
-        if(share.files?.length) {
-          const foundMedia = share.files.some((file) => MEDIA_MIME_TYPES_SUPPORTED.has(getFileMimeType(file)) || isConvertibleMov(file));
-          PopupElement.createPopup(PopupNewMedia, this.chat, share.files, foundMedia ? 'media' : 'document');
-        } else {
-          const preparedPaymentResult = await PaidMessagesInterceptor.prepareStarsForPayment({messageCount: 1, peerId});
-          if(preparedPaymentResult === PAYMENT_REJECTED) throw new Error();
-
-          this.managers.appMessagesManager.sendText({peerId, text: share.text, confirmedPaymentResult: preparedPaymentResult});
-        }
+        const foundMedia = share.files.some((file) => MEDIA_MIME_TYPES_SUPPORTED.has(getFileMimeType(file)) || isConvertibleMov(file));
+        PopupElement.createPopup(PopupNewMedia, this.chat, share.files, foundMedia ? 'media' : 'document');
       });
+      return;
     }
+
+    // `/share/` is a form target any origin can POST to (Web Share Target), so
+    // its text takes the `t.me/share/url` route: a draft in the chosen chat,
+    // which the user sees and sends — never an immediate `sendText`.
+    internalLinkProcessor.processInternalLink({
+      _: INTERNAL_LINK_TYPE.SHARE,
+      url: share.url,
+      text: share.text || share.title
+    }).catch(noop);
   }
 
   public async confirmBotWebViewInner({

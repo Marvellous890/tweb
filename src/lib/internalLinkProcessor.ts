@@ -1480,12 +1480,15 @@ export class InternalLinkProcessor {
 
   public processShareLink = async(link: InternalLink.InternalLinkShare) => {
     const {peerId, threadId, monoforumThreadId} = await showSharingPicker2Popup();
-    appImManager.setInnerPeer({
-      peerId,
-      threadId,
-      monoforumThreadId,
-      text: [link.url, link.text].filter(Boolean).join('\n')
-    });
+    // The shared text becomes a draft of the chosen chat — any chat, the way
+    // tdesktop's `MainWidget::shareUrl` does it. `setInnerPeer({text})` is the
+    // `?text=` deep-link path, which only prefills private chats.
+    const text = [link.url, link.text].filter(Boolean).join('\n');
+    if(text) {
+      await rootScope.managers.appDraftsManager.setDraft(peerId, threadId || monoforumThreadId, text);
+    }
+
+    appImManager.setInnerPeer({peerId, threadId, monoforumThreadId});
   };
 
   public processUniqueStarGiftLink = async(link: InternalLink.InternalLinkUniqueStarGift) => {
