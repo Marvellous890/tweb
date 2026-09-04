@@ -229,11 +229,19 @@ function checkElementForEntity(
         entity.length += value.length;
       }
     } else if(tag.entityName === 'messageEntityMentionName') {
+      // `data-follow` also arrives with pasted HTML, so it is untrusted: only a
+      // numeric user id becomes an entity — a missing one used to throw here and
+      // any other value reached `getUserInput` as NaN, i.e. as `inputUserSelf`.
+      const follow = (closest as HTMLElement).dataset.follow;
+      if(!/^\d+$/.test(follow) || !+follow) {
+        continue;
+      }
+
       (currentEntities[tag.entityName] ||= pushEntity(entities, {
         _: tag.entityName,
         offset: offset.offset,
         length: 0,
-        user_id: (closest as HTMLElement).dataset.follow.toUserId()
+        user_id: follow.toUserId()
       })).length += value.length;
     } else if(tag.entityName === 'messageEntityBlockquote') {
       (currentEntities[tag.entityName] ||= pushEntity(entities, {
