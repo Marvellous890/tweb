@@ -53,4 +53,10 @@ describe('web page action on click', () => {
   it('offers nothing for a preview type that is not actionable here', () => {
     expect(getWebPageActionOnClick(makeWebPage('photo'), ['telegram_call'], SENDER)).toBeUndefined();
   });
+
+  it('offers no internal action for a preview on a longer host beginning with t.me', () => {
+    const url = 'https://t.me.evil.com/call/ON9EHGLaogOp2uBOt1R6C7XOunc';
+    expect(getWebPageActionOnClick(makeWebPage('telegram_call', url), ['telegram_call'], SENDER)).toBeUndefined();
+    expect(dispatched).toHaveLength(0);
+  });
 });

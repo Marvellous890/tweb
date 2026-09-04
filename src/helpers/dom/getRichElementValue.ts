@@ -6,7 +6,7 @@
  */
 
 import {MessageEntity} from '@layer';
-import matchUrlProtocol from '@lib/richTextProcessor/matchUrlProtocol';
+import {normalizeUrlProtocol} from '@lib/richTextProcessor/matchUrlProtocol';
 import {BOM_REG_EXP} from '@helpers/string/bom';
 import {ENTITY_ELEMENT_MAP} from '@lib/richTextProcessor/wrapRichText';
 
@@ -204,10 +204,7 @@ function checkElementForEntity(
             throw 1;
           }
 
-          let url2Before = value;
-          if(!matchUrlProtocol(url2Before)) {
-            url2Before = 'https://' + url2Before;
-          }
+          const url2Before = normalizeUrlProtocol(value);
 
           let url2: URL;
           let url2String: string;
