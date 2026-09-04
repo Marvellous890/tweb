@@ -861,6 +861,19 @@ export default class GroupCallInstance extends CallInstanceBase<{
     const next = new Map<PeerId, GroupCallParticipant>();
     for(const userId of userIds) {
       const peerId = conferenceUserIdToPeerId(userId);
+      // validateGroupState rejects user_ids that are not positive, so on a
+      // validated chain this never fires — but the row list would read 0 as
+      // ourselves (getParticipantByPeerId's NULL_PEER_ID branch) and a negative
+      // id as a chat, naming the wrong party as the key holder. Report instead
+      // of rendering; the identity still goes through the exact-id removal.
+      if(peerId === NULL_PEER_ID || !peerId.isUser()) {
+        this.reportConferenceBug(
+          'an e2e member id cannot be shown as a user — it would render as ourselves or as a chat',
+          {peerId, userIds: userIds.map(String)}
+        );
+        continue;
+      }
+
       // The roster list is keyed by PeerId, so two chain ids that round to the
       // same one (only possible above 2^53 — see conferenceMembership.ts) can
       // only ever be ONE row. Removal still covers both, since that works off

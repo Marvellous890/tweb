@@ -44,6 +44,11 @@ import type {GroupParticipant, GroupState} from './tlTypes';
 // to the same double, and the server picks both the chain ids and the roster
 // ids. An identity could hide behind a rounding collision with a junk roster
 // row. findChainOnlyMembers therefore compares exact decimal strings.
+//
+// Deliberately never throws: it sits on the reconcile path, and a throw there
+// would skip the removal too. Ids <= 0 (0 is NULL_PEER_ID = "self", negatives
+// are chat space) are rejected by validateGroupState before a chain state can
+// reach this, and publishMembersWithAccess refuses to key a row by them.
 export function conferenceUserIdToPeerId(userId: bigint): PeerId {
   return Number(userId).toPeerId();
 }

@@ -201,6 +201,19 @@ function validateGroupState(gs: GroupState): void {
       throw new BlockchainError('INVALID_GROUP_STATE', 'participant flags have invalid bits');
     }
 
+    // tweb hardening on top of tdlib, whose validate_group_state
+    // (Blockchain.cpp:334) has no such check. The chain never ties a user_id
+    // to an account: an outsider self-join carries whatever number its signer
+    // picked, and the UI keys rows by PeerId — 0 is NULL_PEER_ID, which the
+    // roster resolves to OURSELVES, and a negative id lands in chat space
+    // (conferenceMembership.ts). Either way a key holder is shown as the wrong
+    // party or not at all, which defeats the disclosure the roster
+    // reconciliation exists for. No real user id is <= 0, so rejecting here
+    // costs nothing on an honest chain.
+    if(p.userId <= BigInt(0)) {
+      throw new BlockchainError('INVALID_GROUP_STATE', 'participant user_id is not a positive user id');
+    }
+
     userIds.add(p.userId);
     keys.add(bytesToHex(p.publicKey));
   }

@@ -771,3 +771,58 @@ describe('GroupCallInstance — chain-only conference members', () => {
     expect((instance as any).staleSince.size).toBe(0);
   });
 });
+
+describe('GroupCallInstance — chain ids the roster cannot represent as a user', () => {
+  // validateGroupState rejects these before a chain state exists, so the
+  // instance only ever sees them through a bypass — but the render boundary
+  // must still refuse, because the alternative is a row naming the wrong party.
+  beforeEach(() => {
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined);
+  });
+
+  it('never keys a row by NULL_PEER_ID — that row would resolve to ourselves', async() => {
+    const {instance, reconcile} = makeConference();
+    (instance as any).e2eStatus = {groupState: groupStateOf(ALICE, CAROL, BigInt(0))};
+    (instance as any).participant = {
+      _: 'groupCallParticipant', peer: {_: 'peerUser', user_id: ALICE.toString()}, pFlags: {self: true}, source: 1, date: 1
+    };
+    const report = vi.spyOn(instance as any, 'reportConferenceBug');
+    const seen: Array<{current: PeerId[], previous: PeerId[]}> = [];
+    instance.addEventListener('membersWithAccess', (change) => seen.push(change));
+
+    await reconcile(rosterOf(ALICE, CAROL));
+
+    expect(instance.memberWithAccessPeerIds).toEqual([]);
+    expect(instance.isMemberWithAccess(0 as PeerId)).toBe(false);
+    expect(seen).toEqual([]);
+    expect(report).toHaveBeenCalledWith(expect.stringContaining('cannot be shown as a user'), expect.objectContaining({peerId: 0}));
+    // The self branch is untouched: NULL_PEER_ID still means us, and only us.
+    await expect(instance.getParticipantByPeerId(0 as PeerId)).resolves.toMatchObject({pFlags: {self: true}});
+  });
+
+  it('never keys a row by a chat id', async() => {
+    const {instance, reconcile} = makeConference();
+    (instance as any).e2eStatus = {groupState: groupStateOf(ALICE, CAROL, BigInt(-5))};
+    const report = vi.spyOn(instance as any, 'reportConferenceBug');
+
+    await reconcile(rosterOf(ALICE, CAROL));
+
+    expect(instance.memberWithAccessPeerIds).toEqual([]);
+    expect(report).toHaveBeenCalledWith(expect.stringContaining('cannot be shown as a user'), expect.objectContaining({peerId: -5}));
+  });
+
+  it('still removes such an identity with only_left — refusing the row must not skip the rekey', async() => {
+    const {instance, reconcile, expireGrace, buildRemoveParticipantsBlock, deleteConferenceCallParticipants} = makeConference();
+    (instance as any).e2eStatus = {groupState: groupStateOf(ALICE, CAROL, BigInt(0))};
+    buildRemoveParticipantsBlock.mockResolvedValue({block: new Uint8Array([1]), removedUserIds: [BigInt(0)]});
+
+    await reconcile(rosterOf(ALICE, CAROL));
+    expireGrace();
+    await reconcile(rosterOf(ALICE, CAROL));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(buildRemoveParticipantsBlock).toHaveBeenCalledWith({userIds: [BigInt(0)]});
+    expect(deleteConferenceCallParticipants).toHaveBeenCalledTimes(1);
+    expect(deleteConferenceCallParticipants).toHaveBeenCalledWith(expect.objectContaining({ids: ['0'], onlyLeft: true}));
+  });
+});

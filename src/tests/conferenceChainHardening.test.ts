@@ -56,6 +56,23 @@ function duplicateUserIdState(): GroupState {
   };
 }
 
+// user_id 0 is NULL_PEER_ID in the UI (reads as ourselves), a negative id is a
+// chat — neither can ever be a Telegram user, and neither can be disclosed as
+// one in the roster.
+function zeroUserIdState(): GroupState {
+  return {
+    participants: [participant(alice(), BigInt(7)), participant(bob(), BigInt(0))],
+    externalPermissions: 0
+  };
+}
+
+function negativeUserIdState(): GroupState {
+  return {
+    participants: [participant(alice(), BigInt(7)), participant(bob(), BigInt(-5))],
+    externalPermissions: 0
+  };
+}
+
 function proofSharedKey(state: GroupState): SharedKey {
   return {
     ek: new Uint8Array(32),
@@ -127,6 +144,15 @@ describe('buildBlock validates before signing', () => {
     await expect(
       buildBlock(createInitialState(), [{kind: 'setGroupState', groupState: duplicateUserIdState()}], alice())
     ).rejects.toThrow(/duplicate user_id/);
+  });
+
+  it('rejects a group_state with a user_id that is not a positive user id', async() => {
+    await expect(
+      buildBlock(createInitialState(), [{kind: 'setGroupState', groupState: zeroUserIdState()}], alice())
+    ).rejects.toThrow(/not a positive user id/);
+    await expect(
+      buildBlock(createInitialState(), [{kind: 'setGroupState', groupState: negativeUserIdState()}], alice())
+    ).rejects.toThrow(/not a positive user id/);
   });
 });
 
@@ -219,6 +245,22 @@ describe('hydrateStateFromBlock enforces the state-proof shape', () => {
     });
     await expect(hydrateStateFromBlock(block)).rejects.toThrow(/duplicate user_id/);
     await expect(applyBlock(createInitialState(), block)).rejects.toThrow(/duplicate user_id/);
+  });
+
+  it('rejects user_id 0 on both inbound paths — it would alias NULL_PEER_ID, i.e. ourselves', async() => {
+    const block = seedBlock({
+      changes: [{kind: 'setGroupState', groupState: zeroUserIdState()}]
+    });
+    await expect(hydrateStateFromBlock(block)).rejects.toThrow(/not a positive user id/);
+    await expect(applyBlock(createInitialState(), block)).rejects.toThrow(/not a positive user id/);
+  });
+
+  it('rejects a negative user_id on both inbound paths — it would land in chat PeerId space', async() => {
+    const block = seedBlock({
+      changes: [{kind: 'setGroupState', groupState: negativeUserIdState()}]
+    });
+    await expect(hydrateStateFromBlock(block)).rejects.toThrow(/not a positive user id/);
+    await expect(applyBlock(createInitialState(), block)).rejects.toThrow(/not a positive user id/);
   });
 
   it('still rejects a negative height', async() => {
