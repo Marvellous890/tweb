@@ -3889,7 +3889,7 @@ const lang = {
     'other_value': '**%d people** were removed from the call.'
   },
   'ConferenceCall.Fingerprint.Verified': 'Compare these emoji with the other participants',
-  'ConferenceCall.Fingerprint.Pending': 'Verifying encryption\u2026',
+  'ConferenceCall.Fingerprint.Pending': 'Verifying encryption…',
   'ConferenceCall.New': 'New Conference',
   'ConferenceCall.Create.Title': 'Start an encrypted group call?',
   'ConferenceCall.Create.Text': 'You will join muted. You can invite people after the conference starts.',
@@ -3907,7 +3907,7 @@ const lang = {
   'ConferenceCall.Join.Button': 'Join Group Call',
   'ConferenceCall.Title': 'Encrypted call',
   'ConferenceCall.Unsupported': 'Encrypted group calls are not supported in this browser. Open this call in a supported Telegram app.',
-  'ConferenceCall.Migrating': 'Switching to encrypted group call\u2026',
+  'ConferenceCall.Migrating': 'Switching to encrypted group call…',
   'ConferenceCall.Controls.Toolbar': 'Call controls',
   'ConferenceCall.Controls.RaiseHand': 'Raise hand',
   'ConferenceCall.Controls.HandRaised': 'Hand raised',
